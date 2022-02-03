@@ -1,0 +1,80 @@
+doc-0
+"0", "(title1)", "smelting smelting test"
+
+doc-1
+"1", "(title2)", "smelting smelting smelting"
+
+============================================================
+Read/Write - From Pipline.sh
+
+Job 0: Counts the total number of documents in the collection
+Input: input/input.csv
+	"docid", "title", "body"\n
+	count lines in input files directly
+Output: copy from ouput0/part-* to output0/total_document_count.txt, should be a single integer
+
+map0: docs \t doc_counts
+---------------
+docs 	2
+---------------
+
+reduce0: doc_counts
+---------------
+2
+---------------
+
+Job1: Calculate tf for each document
+Input: output0/
+Output: output1/
+
+map1: docid \t word frequency
+-------------------------------------
+ word					   	id	tf
+(word = smelting)			0	1
+(word = smelting)			0	1
+(word = test)				0	1	
+(word = smelting)			1	1
+(word = smelting)			1	1
+(word = smelting)			1	1
+-------------------------------------
+
+reduce1: word \t {docid, frequency}
+-----------------------------------------------
+ word	             {id,	tf}
+(word = smelting)    {{id = 0, 2}, {id = 1, 3}}
+(word = test)        {{id = 0, 1},}
+-----------------------------------------------
+
+
+idf \t docid \t tf \t norm
+Job2: Calculate idf
+Input: output1/
+Output: output2/
+
+map2: word \t {docid, tf, idf, norm}
+nk = length of each word pair
+N = read from output0/total_document_count.txt -- job0
+idf = log(N / nk)
+norm = tf^2 * idf^2
+--------------------------------------------------------------------
+word				{docid, tf, idf, norm}
+(word = smelting)	{id = 0, tf = 2, idf = log(2/2), norm = 2^2 * 0}
+(word = smelting)	{id = 1, tf = 3, idf = log(2/2), norm = ...}
+(word = test)		{id = 0, tf = 1, idf = log(2/1), norm = ...}
+--------------------------------------------------------------------
+
+reduce2: sum up the normalization factor for each document
+word \t {idf \t docid \t tf \t norm_sum}
+norm_sum = SUM(norm) ^1/2 sum norm of each term for every document
+---------------------------------------------------------------------------
+word \t idf_sum				    [docid, tf, norm_sum, ...]
+(word = smelting, idf_sum = )	[docid = 0, tf = 2, norm_sum: norm_sum_doc0;
+					             docid = 1, tf = 3, norm_sum: norm_sum_doc1]
+(word = test, idf_sum = )		[docid = 0, tf = 1, norm_sum: norm_sum_doc0]
+----------------------------------------------------------------------------
+
+Job3: Final output
+Input: output2/
+Output: ouput3/
+
+...
